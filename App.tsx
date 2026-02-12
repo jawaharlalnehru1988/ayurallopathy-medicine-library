@@ -6,6 +6,7 @@ import Dashboard from './components/Dashboard';
 import MedicineList from './components/MedicineList';
 import MedicineForm from './components/MedicineForm';
 import DiseaseGuide from './components/DiseaseGuide';
+import { medicineApi } from './services/medicineApi';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'library' | 'diseases'>('dashboard');
@@ -14,49 +15,122 @@ const App: React.FC = () => {
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [viewingMedicine, setViewingMedicine] = useState<Medicine | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load from local storage
+  // Load medicines from API
   useEffect(() => {
-    const savedMeds = localStorage.getItem('ayur_library_medicines');
-    if (savedMeds) {
-      setMedicines(JSON.parse(savedMeds));
-    } else {
-      setMedicines(INITIAL_MEDICINES);
-    }
+    const loadMedicines = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await medicineApi.getAll();
+        setMedicines(data);
+      } catch (err) {
+        console.error('Failed to load medicines:', err);
+        setError('Failed to load medicines. Using local data.');
+        // Fallback to localStorage if API fails
+        const savedMeds = localStorage.getItem('ayur_library_medicines');
+        if (savedMeds) {
+          setMedicines(JSON.parse(savedMeds));
+        } else {
+          setMedicines(INITIAL_MEDICINES);
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
 
+    loadMedicines();
+  }, []);
+
+  // Load diseases from local storage (keep existing logic)
+  useEffect(() => {
     const savedDiseases = localStorage.getItem('ayur_library_diseases');
     if (savedDiseases) {
       setDiseases(JSON.parse(savedDiseases));
     }
   }, []);
 
-  // Save to local storage
+  // Backup medicines to local storage (as fallback)
   useEffect(() => {
-    localStorage.setItem('ayur_library_medicines', JSON.stringify(medicines));
+    if (medicines.length > 0) {
+      localStorage.setItem('ayur_library_medicines', JSON.stringify(medicines));
+    }
   }, [medicines]);
 
+  // Save diseases to local storage
   useEffect(() => {
     localStorage.setItem('ayur_library_diseases', JSON.stringify(diseases));
   }, [diseases]);
 
-  const handleAddMedicine = (newMed: Partial<Medicine>) => {
-    const med: Medicine = {
-      ...newMed,
-      id: Math.random().toString(36).substr(2, 9),
-      lastUpdated: new Date().toISOString(),
-    } as Medicine;
-    setMedicines([...medicines, med]);
-    setIsFormOpen(false);
+  const handleAddMedicine = async (newMed: Partial<Medicine>) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const created = await medicineApi.create(newMed);
+      setMedicines([...medicines, created]);
+      setIsFormOpen(false);
+    } catch (err) {
+      console.error('Failed to add medicine:', err);
+      setError('Failed to add medicine. Please try again.');
+      // Fallback to local creation
+      const med: Medicine = {
+        ...newMed,
+        id: Math.random().toString(36).substr(2, 9),
+        lastUpdated: new Date().toISOString(),
+      } as Medicine;
+      setMedicines([...medicines, med]);
+      setIsFormOpen(false);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleUpdateMedicine = (updatedFields: Partial<Medicine>) => {
+  const handleUpdateMedicine = async (updatedFields: Partial<Medicine>) => {
     if (!editingMedicine) return;
-    const updatedMedicines = medicines.map(m => 
-      m.id === editingMedicine.id ? { ...m, ...updatedFields, lastUpdated: new Date().toISOString() } : m
-    );
-    setMedicines(updatedMedicines);
-    setEditingMedicine(null);
-    setIsFormOpen(false);
+    try {
+      setLoading(true);
+      setError(null);
+      const updated = await medicineApi.update(editingMedicine.id, updatedFields);
+      const updatedMedicines = medicines.map(m => 
+        m.id === editingMedicine.id ? updated : m
+      );
+      setMedicines(updatedMedicines);
+      setEditingMedicine(null);
+      setIsFormOpen(false);
+    } catch (err) {
+      console.error('Failed to update medicine:', err);
+      setError('Failed to update medicine. Please try again.');
+      // Fallback to local update
+      const updatedMedicines = medicines.map(m => 
+        m.id === editingMedicine.id ? { ...m, ...updatedFields, lastUpdated: new Date().toISOString() } : m
+      );
+      setMedicines(updatedMedicines);
+      setEditingMedicine(null);
+      setIsFormOpen(false);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteMedicine = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this medicine?')) {
+      return;
+    }
+    try {
+      setLoading(true);
+      setError(null);
+      await medicineApi.delete(id);
+      setMedicines(medicines.filter(m => m.id !== id));
+    } catch (err) {
+      console.error('Failed to delete medicine:', err);
+      setError('Failed to delete medicine. Please try again.');
+      // Fallback to local deletion
+      setMedicines(medicines.filter(m => m.id !== id));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAddDisease = (newDisease: Partial<Disease>) => {
@@ -162,24 +236,55 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        {activeTab === 'dashboard' && <Dashboard medicines={medicines} />}
-        
-        {activeTab === 'library' && (
-          <MedicineList 
-            medicines={medicines} 
-            onEdit={handleEditClick} 
-            onDelete={(id) => setMedicines(medicines.filter(m => m.id !== id))}
-            onView={(med) => setViewingMedicine(med)}
-          />
+        {/* Loading State */}
+        {loading && (
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600 mx-auto mb-4"></div>
+              <p className="text-slate-500">Loading medicines...</p>
+            </div>
+          </div>
         )}
 
-        {activeTab === 'diseases' && (
-          <DiseaseGuide 
-            diseases={diseases}
-            onAdd={handleAddDisease}
-            onUpdate={handleUpdateDisease}
-            onDelete={handleDeleteDisease}
-          />
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+            <span className="text-red-600">⚠️</span>
+            <div className="flex-1">
+              <p className="text-red-800 font-semibold">Error</p>
+              <p className="text-red-600 text-sm">{error}</p>
+            </div>
+            <button 
+              onClick={() => setError(null)}
+              className="text-red-400 hover:text-red-600"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {!loading && (
+          <>
+            {activeTab === 'dashboard' && <Dashboard medicines={medicines} />}
+            
+            {activeTab === 'library' && (
+              <MedicineList 
+                medicines={medicines} 
+                onEdit={handleEditClick} 
+                onDelete={handleDeleteMedicine}
+                onView={(med) => setViewingMedicine(med)}
+              />
+            )}
+
+            {activeTab === 'diseases' && (
+              <DiseaseGuide 
+                diseases={diseases}
+                onAdd={handleAddDisease}
+                onUpdate={handleUpdateDisease}
+                onDelete={handleDeleteDisease}
+              />
+            )}
+          </>
         )}
 
         {/* Modal Overlay for Form */}
