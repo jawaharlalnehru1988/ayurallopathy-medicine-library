@@ -1,0 +1,5 @@
+{
+  "name": "AyurAllopathy Medicine Library",
+  "description": "A comprehensive medicine inventory management system designed for practitioners handling both Ayurvedic and Allopathic treatments. Features inventory tracking, expiration alerts, and AI-powered medicine information.",
+  "requestFramePermissions": []
+}
