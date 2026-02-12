@@ -1,7 +1,9 @@
+/// <reference types="vite/client" />
 import { Medicine, MedicineCategory } from '../types';
 
 // Configure your API base URL
-const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:8082/api/medicines';
+// Use import.meta.env for Vite, fallback to process.env if available (for compatibility), or default to localhost
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8082/api/medicines';
 
 export interface MedicineResponse {
   id: number;
@@ -90,11 +92,25 @@ const toCreateRequest = (medicine: Partial<Medicine>): MedicineCreateRequest => 
   location: medicine.location,
 });
 
+// Helper for fetching with timeout
+const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeout = 5000): Promise<Response> => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(id);
+    return response;
+  } catch (error) {
+    clearTimeout(id);
+    throw error;
+  }
+};
+
 // API Methods
 export const medicineApi = {
   // Get all medicines
   async getAll(): Promise<Medicine[]> {
-    const response = await fetch(API_BASE_URL);
+    const response = await fetchWithTimeout(API_BASE_URL);
     if (!response.ok) {
       throw new Error(`Failed to fetch medicines: ${response.statusText}`);
     }
@@ -104,7 +120,7 @@ export const medicineApi = {
 
   // Get medicine by ID
   async getById(id: string): Promise<Medicine> {
-    const response = await fetch(`${API_BASE_URL}/${id}`);
+    const response = await fetchWithTimeout(`${API_BASE_URL}/${id}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch medicine: ${response.statusText}`);
     }
@@ -114,7 +130,7 @@ export const medicineApi = {
 
   // Create new medicine
   async create(medicine: Partial<Medicine>): Promise<Medicine> {
-    const response = await fetch(API_BASE_URL, {
+    const response = await fetchWithTimeout(API_BASE_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -146,7 +162,7 @@ export const medicineApi = {
       location: medicine.location,
     };
 
-    const response = await fetch(`${API_BASE_URL}/${id}`, {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -162,7 +178,7 @@ export const medicineApi = {
 
   // Delete medicine
   async delete(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/${id}`, {
+    const response = await fetchWithTimeout(`${API_BASE_URL}/${id}`, {
       method: 'DELETE',
     });
     if (!response.ok) {
@@ -172,7 +188,7 @@ export const medicineApi = {
 
   // Get medicines by category
   async getByCategory(category: MedicineCategory): Promise<Medicine[]> {
-    const response = await fetch(`${API_BASE_URL}/category/${category}`);
+    const response = await fetchWithTimeout(`${API_BASE_URL}/category/${category}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch medicines by category: ${response.statusText}`);
     }
@@ -182,7 +198,7 @@ export const medicineApi = {
 
   // Search medicines by name
   async searchByName(name: string): Promise<Medicine[]> {
-    const response = await fetch(`${API_BASE_URL}/search?name=${encodeURIComponent(name)}`);
+    const response = await fetchWithTimeout(`${API_BASE_URL}/search?name=${encodeURIComponent(name)}`);
     if (!response.ok) {
       throw new Error(`Failed to search medicines: ${response.statusText}`);
     }
@@ -192,7 +208,7 @@ export const medicineApi = {
 
   // Get expiring soon medicines
   async getExpiringSoon(days: number = 30): Promise<Medicine[]> {
-    const response = await fetch(`${API_BASE_URL}/expiring-soon?days=${days}`);
+    const response = await fetchWithTimeout(`${API_BASE_URL}/expiring-soon?days=${days}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch expiring medicines: ${response.statusText}`);
     }
@@ -202,7 +218,7 @@ export const medicineApi = {
 
   // Get expired medicines
   async getExpired(): Promise<Medicine[]> {
-    const response = await fetch(`${API_BASE_URL}/expired`);
+    const response = await fetchWithTimeout(`${API_BASE_URL}/expired`);
     if (!response.ok) {
       throw new Error(`Failed to fetch expired medicines: ${response.statusText}`);
     }
@@ -212,7 +228,7 @@ export const medicineApi = {
 
   // Get low stock medicines
   async getLowStock(threshold: number = 10): Promise<Medicine[]> {
-    const response = await fetch(`${API_BASE_URL}/low-stock?threshold=${threshold}`);
+    const response = await fetchWithTimeout(`${API_BASE_URL}/low-stock?threshold=${threshold}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch low stock medicines: ${response.statusText}`);
     }
