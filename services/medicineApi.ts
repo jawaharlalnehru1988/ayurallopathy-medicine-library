@@ -135,6 +135,7 @@ export const medicineApi = {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify(toCreateRequest(medicine)),
     });
     if (!response.ok) {
@@ -167,6 +168,7 @@ export const medicineApi = {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify(updateRequest),
     });
     if (!response.ok) {
@@ -180,6 +182,7 @@ export const medicineApi = {
   async delete(id: string): Promise<void> {
     const response = await fetchWithTimeout(`${API_BASE_URL}/${id}`, {
       method: 'DELETE',
+      credentials: 'include',
     });
     if (!response.ok) {
       throw new Error(`Failed to delete medicine: ${response.statusText}`);

@@ -25,6 +25,9 @@ const MedicineForm: React.FC<MedicineFormProps> = ({ initialData, onSubmit, onCa
     ...initialData
   });
 
+  const [benefitsInput, setBenefitsInput] = useState(formData.benefits?.join(', ') || '');
+  const [sideEffectsInput, setSideEffectsInput] = useState(formData.sideEffects?.join(', ') || '');
+
   const [isAiLoading, setIsAiLoading] = useState(false);
 
   const handleAiAssist = async () => {
@@ -32,6 +35,9 @@ const MedicineForm: React.FC<MedicineFormProps> = ({ initialData, onSubmit, onCa
     setIsAiLoading(true);
     const info = await getMedicineInfo(formData.name, formData.category || 'Medicine');
     if (info) {
+      setBenefitsInput(info.benefits?.join(', ') || benefitsInput);
+      setSideEffectsInput(info.sideEffects?.join(', ') || sideEffectsInput);
+
       setFormData(prev => ({
         ...prev,
         description: info.description || prev.description,
@@ -71,7 +77,7 @@ const MedicineForm: React.FC<MedicineFormProps> = ({ initialData, onSubmit, onCa
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                 required
               />
-              <button 
+              <button
                 type="button"
                 onClick={handleAiAssist}
                 disabled={isAiLoading}
@@ -163,16 +169,22 @@ const MedicineForm: React.FC<MedicineFormProps> = ({ initialData, onSubmit, onCa
             <label className="text-sm font-semibold text-slate-700">Benefits (comma separated)</label>
             <textarea
               className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none h-20"
-              value={formData.benefits?.join(', ')}
-              onChange={e => setFormData({ ...formData, benefits: e.target.value.split(',').map(s => s.trim()).filter(s => s !== '') })}
+              value={benefitsInput}
+              onChange={e => {
+                setBenefitsInput(e.target.value);
+                setFormData({ ...formData, benefits: e.target.value.split(',').map(s => s.trim()).filter(Boolean) });
+              }}
             />
           </div>
           <div className="space-y-1">
             <label className="text-sm font-semibold text-slate-700">Side Effects (comma separated)</label>
             <textarea
               className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:outline-none h-20"
-              value={formData.sideEffects?.join(', ')}
-              onChange={e => setFormData({ ...formData, sideEffects: e.target.value.split(',').map(s => s.trim()).filter(s => s !== '') })}
+              value={sideEffectsInput}
+              onChange={e => {
+                setSideEffectsInput(e.target.value);
+                setFormData({ ...formData, sideEffects: e.target.value.split(',').map(s => s.trim()).filter(Boolean) });
+              }}
             />
           </div>
         </div>
