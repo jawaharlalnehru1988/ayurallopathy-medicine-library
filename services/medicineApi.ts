@@ -3,6 +3,7 @@ import { Medicine, MedicineCategory } from '../types';
 
 // Configure your API base URL
 // Use import.meta.env for Vite, fallback to process.env if available (for compatibility), or default to localhost
+// Updated: Feb 12, 2026 - Added credentials support for CORS
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8082/api/medicines';
 
 export interface MedicineResponse {
